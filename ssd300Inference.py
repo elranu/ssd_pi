@@ -5,6 +5,8 @@ from keras.optimizers import Adam
 from imageio import imread
 import numpy as np
 from matplotlib import pyplot as plt
+import cv2
+from skimage import transform,io
 
 from models.keras_ssd300 import ssd_300
 from keras_loss_function.keras_ssd_loss import SSDLoss
@@ -13,14 +15,14 @@ from keras_layers.keras_layer_DecodeDetections import DecodeDetections
 from keras_layers.keras_layer_DecodeDetectionsFast import DecodeDetectionsFast
 from keras_layers.keras_layer_L2Normalization import L2Normalization
 
-class SSDInference():
+class SSDPredictor():
     def __init__(self, confidence_threshold = 0.5, 
-        weights_path = "trained_weights/VGG_VOC0712Plus_SSD_300x300_iter_240000.h5"):
+        weights_file = "trained_weights/VGG_VOC0712Plus_SSD_300x300_iter_240000.h5"):
 
         self.img_height = 300
         self.img_width = 300
         self.confidence_threshold = confidence_threshold
-        self.weights_path = weights_path
+        self.weights_file = weights_file
         self.__compile_model()
         self.classes = ['background',
            'aeroplane', 'bicycle', 'bird', 'boat',
@@ -56,7 +58,7 @@ class SSDInference():
                         top_k=200,
                         nms_max_output_size=400)
 
-        self.model.load_weights(self.weights_path, by_name=True)
+        self.model.load_weights(self.weights_file, by_name=True)
 
         adam = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, decay=0.0)
 
@@ -67,7 +69,8 @@ class SSDInference():
     def __apply_confidence(self, y_pred):
         return [y_pred[k][y_pred[k,:,1] > self.confidence_threshold] for k in range(y_pred.shape[0])]
 
-    def predict(self, img_path= "predictPics/", input_images = ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg", "7.jpg", "8.jpg", "9.jpg", "10.jpg"]): 
+    def demo_predict_images(self, input_images = ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg", "7.jpg", "8.jpg", "9.jpg", "10.jpg"],
+                img_path= "predictPics/"): 
 
         self.orig_images = [] #stores loaded original images
         resized_images = [] # Store resized versions of the images here.
@@ -80,6 +83,24 @@ class SSDInference():
         y_pred = self.model.predict(np.array(resized_images))
         self.y_pred_thresh = self.__apply_confidence(y_pred)
         return self.y_pred_thresh
+    
+    def predict(self, image):
+        """image in ndarray """
+        images = []
+        resized_image = transform.resize(image, (self.img_height,self.img_width), mode='symmetric', preserve_range=True)
+        images.append(resized_image)
+        y_pred = self.model.predict(np.array(images))
+        self.y_pred_thresh = self.__apply_confidence(y_pred)  
+        
+        for box in self.y_pred_thresh[0]:
+            xmin = int(box[2] * image.shape[1] / self.img_width)
+            ymin = int(box[3] * image.shape[0] / self.img_height)
+            xmax = int(box[4] * image.shape[1] / self.img_width)
+            ymax = int(box[5] * image.shape[0] / self.img_height)
+            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2 )
+            #current_axis.add_patch(plt.Rectangle((xmin, ymin), xmax-xmin, ymax-ymin, color=color, fill=False, linewidth=2)) 
+
+        return self.y_pred_thresh, image
         
     def print_last_prediction(self):
         colors = plt.cm.hsv(np.linspace(0, 1, 21)).tolist()
@@ -103,4 +124,5 @@ class SSDInference():
                 current_axis.add_patch(plt.Rectangle((xmin, ymin), xmax-xmin, ymax-ymin, color=color, fill=False, linewidth=2))  
                 current_axis.text(xmin, ymin, label, size='x-large', color='white', bbox={'facecolor':color, 'alpha':1.0})
             plt.show()
+
 
