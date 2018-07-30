@@ -3,11 +3,9 @@ import os
 import sys
 import cv2
 
-class Camera:
-    def __int__(self, image_height=300, image_width=300):
-        self.image_height = image_height
-        self.image_width = image_width
+from ssd_predictor import SSDPredictor
 
+class Camera:
     def __create_video_input(self, input_video_name):
         """Define VideoCapture object"""
         if(input_video_name == '0'):
@@ -27,22 +25,17 @@ class Camera:
         self.output_video_name = output_video_name.split('.')[0]
         self.extension = output_video_name.split('.')[-1]
         
-        # If mp4 file, save as avi then convert
-        if(self.extension == 'mp4'):
-            self.output_video_name_temp = self.output_video_name + '.avi'
-            self.CONVERT_TO_MP4 = True
-        else:
-            self.output_video_name_temp = ".".join(self.output_video_name, self.extension)
+        self.output_video_name_temp = self.output_video_name + "." + self.extension
         
         # Define the codec
-        fourcc = cv2.VideoWriter_fourcc(*"X264")
+        fourcc = cv2.VideoWriter_fourcc(*"MP4V")
 
         # Set FPS from video file
         fps = self.input_video.get(cv2.CAP_PROP_FPS)
         
         # Get videocapture's shape
-        out_shape = (int(self.input_video.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                     int(self.input_video.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        out_shape = (int(self.input_video.get(cv2.CAP_PROP_FRAME_WIDTH)), 
+                     int(self.input_video.get(cv2.CAP_PROP_FRAME_HEIGHT))) 
         
         self.output_video = cv2.VideoWriter(self.output_video_name_temp, 
             fourcc, fps, out_shape)
@@ -61,6 +54,8 @@ class Camera:
     
     def classify(self, input_video_name, output_video_name, predictor):
         """Classify all the frames of the video and save the labeled video"""
+        winname = "Image viewer"
+        cv2.namedWindow(winname)
         
         self.__create_video_input(input_video_name)
         self.__create_video_writer(output_video_name)
@@ -68,33 +63,32 @@ class Camera:
         while(self.input_video.isOpened()):
             
             try:
-                images, original_image = self.get_frame()
+                image = self.get_frame()
                 pass
             except Exception as e:
                 print(e)
                 break
             
-            label = predictor.predict(images)
-
-            # Print the text on the image
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(original_image,label,(50,50), font, 
-                        1,(255,255,255),2,cv2.LINE_AA)
+            label, predicted_image = predictor.predict(image, True)
             
             # Write image to video
-            self.output_video.write(original_image)
+            self.output_video.write(predicted_image)
                         
-            # Show the image if flag is set
-            if(self.SHOW_IMAGE):
-                cv2.imshow('image',original_image)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+            #Show the image if flag is set
+            # if(self.SHOW_IMAGE):
+            cv2.imshow('image',predicted_image)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
                     
         self.release()
         
-        if(self.CONVERT_TO_MP4):
-            self.convert_avi_to_mp4(self.output_video_name_temp,
-                self.output_video_name)
-        
         return self.output_video_name
 
+    def release(self):
+            """Release and destory everything"""
+            
+            self.input_video.release()
+            self.output_video.release()
+            cv2.destroyAllWindows()
+            print("Finished processing video, saving file to {}".format(
+                self.output_video_name))
