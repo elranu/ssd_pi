@@ -84,23 +84,27 @@ class SSDPredictor():
         self.y_pred_thresh = self.__apply_confidence(y_pred)
         return self.y_pred_thresh
     
-    def predict(self, image):
+    def predict(self, image, show_boxes = False):
         """image in ndarray """
-        images = []
+        images_to_predict = []
         resized_image = transform.resize(image, (self.img_height,self.img_width), mode='symmetric', preserve_range=True)
-        images.append(resized_image)
-        y_pred = self.model.predict(np.array(images))
+        images_to_predict.append(resized_image)
+        y_pred = self.model.predict(np.array(images_to_predict))
         self.y_pred_thresh = self.__apply_confidence(y_pred)  
         
+        pred_formated = []
         for box in self.y_pred_thresh[0]:
-            xmin = int(box[2] * image.shape[1] / self.img_width)
-            ymin = int(box[3] * image.shape[0] / self.img_height)
-            xmax = int(box[4] * image.shape[1] / self.img_width)
-            ymax = int(box[5] * image.shape[0] / self.img_height)
-            cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2 )
-            #current_axis.add_patch(plt.Rectangle((xmin, ymin), xmax-xmin, ymax-ymin, color=color, fill=False, linewidth=2)) 
+            pred_formated.append([self.classes[int(box[0])], box[1], box[2], box[3], box[4], box[5]])
+            if(show_boxes):
+                xmin = int(box[2] * image.shape[1] / self.img_width)
+                ymin = int(box[3] * image.shape[0] / self.img_height)
+                xmax = int(box[4] * image.shape[1] / self.img_width)
+                ymax = int(box[5] * image.shape[0] / self.img_height)
+                cv2.rectangle(image, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2 )
+                label = '{}: {:.2f}'.format(self.classes[int(box[0])], box[1])
+                cv2.putText(image, label, (xmin, ymin), cv2.FONT_HERSHEY_SIMPLEX, 0.3, 255)
 
-        return self.y_pred_thresh, image
+        return pred_formated, image
         
     def print_last_prediction(self):
         colors = plt.cm.hsv(np.linspace(0, 1, 21)).tolist()

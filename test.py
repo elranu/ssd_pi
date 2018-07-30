@@ -1,15 +1,12 @@
-from skimage import transform as tf, io as skio
-from ssd300Inference import SSDPredictor
+from ssd_predictor import SSDPredictor
 import cv2
-from imageio import imread
 
-image = skio.imread("predictPics/2.jpg", )
-#image = imread("predictPics/1.jpg")
+image = cv2.imread("predictPics/2.jpg")
 
 print(image.shape)
 predictor = SSDPredictor()
 
-label, predicted_image = predictor.predict(image)
+label, predicted_image = predictor.predict(image, True)
 print(label)
 
 winname = "Image viwer"
